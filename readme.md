@@ -8,5 +8,9 @@ ID|Topic|A|B|C|D|FinishOrNot|RightOrError|Right_Answer|
 
 # 目前的功能
 1. 数据库存取问题数据
-2. 错题保存
+2. 错题保存以及读取
 3. 随机获得问题
+4. 重置所有题的状态
+# 软件截图
+![img](https://img2023.cnblogs.com/blog/2290421/202306/2290421-20230615180104641-953408984.png)
+![img](https://img2023.cnblogs.com/blog/2290421/202306/2290421-20230615180240299-1821897814.png)
