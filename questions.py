@@ -8,13 +8,16 @@ class Questions:
     __m_ID = ' '
     m_FinishOrNot = False #true做了，False未做
     number = 0 #问题总数
-    def __init__(self,Question=' ',ID=' ',Answer=' ',A=' ',B=' ',C=' ',D=' '):
+    def __init__(self,Question='',ID='',Answer='',A='',B='',C='',D=''):
         self.__m_Question = Question
         self.__m_Answer = Answer
         self.__m_A = A
         self.__m_B = B
         self.__m_C = C
         self.__m_D = D
+        self.__m_ID = ID
+        Questions.number += 1
+    def __init__(self,ID):
         self.__m_ID = ID
         Questions.number += 1
 

@@ -1,73 +1,37 @@
 import User
-import questions
 import sys
-import MySQLdb
 import random
 from PyQt5.QtWidgets import QWidget, QApplication,QMessageBox
 from Ui_MainWindow import Ui_Form_MainWindow
 from error_list import Error_List_Ui
 from PyQt5.QtCore import pyqtSignal
-
-MySql_Address = '127.0.0.1'
-MySql_Name = 'python_work'
-MySql_Account = 'root'
-MySql_Password = 'smz200132'
-MySql_Table_User_Name = 'user'
-input_Account = '张三'
-input_Password = '123'
-MySql_Table_Question_Name = 'questions'
-
-Questions_ID = 0
-Questions_ID_Max = 10
-
-def MySql_Processing(Table_Name):
-    #打开数据库
-    try:
-        db = MySQLdb.connect(MySql_Address,MySql_Account,MySql_Password,MySql_Name,charset='utf8')
-    except:
-        print('数据库链接错误\n')
-        return False
-    #使用cursor()方法
-    cursor = db.cursor()
-    #SQL查询语句
-    sql = "SELECT * FROM " + Table_Name
-    try:
-        #执行语句
-        cursor.execute(sql)
-        #获取记录
-        results = cursor.fetchall()
-        #关闭数据库
-        db.close()
-        return results
-    except:
-        #关闭数据库
-        db.close()
-        print("指令读取失败\n")
-        return False
+from Sql import MySql
 
 class MainWindow(QWidget,Ui_Form_MainWindow):
-    m_Sql_Data = ''
     m_Question_Index=0
     m_Question_Index_Max=10
     m_Question_ID=0
     m_Questions = {} #问题列表
     user = User.User()
     child_window = None
+    #数据库对象
+    sql = None
 
     m_Error_Questions = {} #错误问题列表
     m_Error_Questions_Number=0
 
     def __init__(self,parent=None):
+        #初始化窗口
         super(MainWindow,self).__init__(parent=parent)
         self.setupUi(self)
-        self.Sql_Address.setText(MySql_Address)
-        self.Sql_Name.setText(MySql_Name)
-        self.Sql_Table_Name.setText(MySql_Table_Question_Name)
+        self.Sql_Address.setText('127.0.0.1')
+        self.Sql_Name.setText('python_work')
+        self.Sql_Table_Name.setText('questions')
         self.Button_Last.setEnabled(False)
         self.Button_Next.setEnabled(False)
         self.Button_Answer.setEnabled(False)
         self.Button_Again_All.setEnabled(False)
-
+        #初始化信号槽
         self.Button_Next.clicked.connect(self.Button_Next_Question)
         self.Button_Last.clicked.connect(self.Button_Last_Question)
         self.Button_Answer.clicked.connect(self.Button_Answer_Question)
@@ -75,65 +39,49 @@ class MainWindow(QWidget,Ui_Form_MainWindow):
         self.Button_Login.clicked.connect(self.Button_Login_Func)
         self.Button_Error_List.clicked.connect(self.Button_Error_List_Func)
 
-
-    def User_Check(self,user):
-        #在数据库取得账户数据
-        data = MySql_Processing(MySql_Table_User_Name)
-        if(data == False):
-            return False
-        else:
-            for row in data:
-                #print(row)
-                Account = row[1]
-                Password = row[2]
-                if((input_Account == Account) and (input_Password == Password)):
-                    user.set_Account(input_Account)
-                    user.set_Password(input_Password)
-                    print("账户:%s 密码:%s"%(user.get_Account(),user.get_Password()))
-                    return True
-                else:
-                    return False
-
     def get_Question(self):
-        self.m_Sql_Data = MySql_Processing(MySql_Table_Question_Name)
-        if(self.m_Sql_Data == False):
+        #读取所有的题目ID
+        m_Sql_Data = self.sql.get_Question_ID()
+        if(m_Sql_Data == False):
             return False
         else:
             i = 0
             #随机题目种子 sample(range(0,len(data)), N)  N为生成N个
-            max_number = len(self.m_Sql_Data)
-            max_random = random.sample(range(0,max_number), Questions_ID_Max)
-            for i in range(Questions_ID_Max):
-                #print(max_random[i])
-                for row in self.m_Sql_Data: #判断随机题目的ID
-                    if(row[1] == max_random[i]):
-                        self.m_Questions['question'+ str(i)] = questions.Questions(Question=row[0],ID=row[1],Answer=row[6],A=row[2],B=row[3],C=row[4],D=row[5])
-                print("问题",i+1,":",self.m_Questions['question'+ str(i)].get_Question())
+            max_number = len(m_Sql_Data)
+            max_random = random.sample(range(0,max_number), self.m_Question_Index_Max)
+            for i in range(self.m_Question_Index_Max):
+                for row in m_Sql_Data: #判断随机题目的ID
+                    if(row == max_random[i]):
+                        #将随机出来的题目ID保存到字典中
+                        self.m_Questions['question'+ str(i)] = row
+                #测试是否读取出来
+                print("问题",i+1,":",self.sql.get_Question_Topic_By_ID(self.m_Questions['question'+ str(i)]))
 
     def Show_Question(self):
         Index = 'question' + str(self.m_Question_Index)
-        txt = self.m_Questions[Index].get_Question()+'\nA:'+self.m_Questions[Index].get_A()+'\tB:'+self.m_Questions[Index].get_B()+'\nC:'+self.m_Questions[Index].get_C()+'\tD:'+self.m_Questions[Index].get_D()
+        txt = self.sql.get_Question_Topic_By_ID(ID=self.m_Questions[Index]) + '\n' + self.sql.get_Question_A_By_ID(ID=self.m_Questions[Index]) + '\t' + self.sql.get_Question_B_By_ID(ID=self.m_Questions[Index]) + '\n' + self.sql.get_Question_C_By_ID(ID=self.m_Questions[Index]) \
+            + '\t' + self.sql.get_Question_D_By_ID(ID=self.m_Questions[Index])
         self.Show_Questions.setPlainText(txt)
 
     def Save_User_Answer(self):
         Index = 'question' + str(self.m_Question_Index)
-        self.user.set_Answer(self.Button_Get_Input_Answer())
-        self.user.set_Completed_Question_ID(self.m_Questions[Index].get_ID())
-        print('用户答案:',self.user.get_Answer())
-        print('题目唯一ID:',self.m_Questions[Index].get_ID())
+        user_Input_Answer = self.Button_Get_Input_Answer()
+
+        #测试用
+        print('用户答案:',user_Input_Answer)
+        print('题目唯一ID:',self.m_Questions[Index])
         print('题目下标:',Index)
-        if((self.user.get_Answer() != self.m_Questions[Index].get_Answer()) and (self.user.get_Answer() != None)): #如果是错题，则存入错题列表
-            error_index = 'error_question'+ str(self.m_Error_Questions_Number)
-            print(error_index)
-            self.m_Error_Questions[error_index] = questions.Questions(Question=self.m_Questions[Index].get_Question(),ID=self.m_Questions[Index].get_ID(),Answer=self.m_Questions[Index].get_Answer(),
-                                                                    A=self.m_Questions[Index].get_A(),B=self.m_Questions[Index].get_B(),C=self.m_Questions[Index].get_C(),D=self.m_Questions[Index].get_D())
-            self.m_Error_Questions_Number = self.m_Error_Questions_Number + 1
+
+        #如果用户答案跟正确答案一致，则设置用户作对该题
+        if(user_Input_Answer == self.sql.get_Question_Right_Answer_By_ID(ID=self.m_Questions[Index])):
+            #设置题目作对
+            self.sql.set_Question_RightOrError_By_ID(RightOrError=1,ID=self.m_Questions[Index])
         #设置题目为已做
-        self.m_Questions[Index].set_FinishOrNot(True)
+        self.sql.set_Question_FinishOrNot_By_ID(FinishOrNot=1,ID=self.m_Questions[Index])
 
     def Button_Answer_Question(self):
         Index = 'question' + str(self.m_Question_Index)
-        txt = self.m_Questions[Index].get_Answer()
+        txt = self.sql.get_Question_Right_Answer_By_ID(ID=self.m_Questions[Index])
         self.Show_Answer.setPlainText(txt)
 
     def Button_Get_Input_Answer(self):
@@ -166,20 +114,26 @@ class MainWindow(QWidget,Ui_Form_MainWindow):
         if(self.m_Question_Index > 0):
             self.m_Question_Index = self.m_Question_Index - 1
 
-    def Button_Again_All_Question():
-        pass
+    def Button_Again_All_Question(self):
+        if(QMessageBox.information(self, "信息提示框", "是否重置所有题",QMessageBox.Yes,QMessageBox.No) == QMessageBox.Yes):
+            print("重置成功")
+            self.sql.reset_Question()
+        else:
+            print("取消重置")
 
     #登入按钮执行功能
     def Button_Login_Func(self):
         #数据库链接
-        global MySql_Address,MySql_Name,MySql_Table_Question_Name,MySql_Account,MySql_Password
+        #global MySql_Address,MySql_Name,MySql_Table_Question_Name,MySql_Account,MySql_Password
         MySql_Address = self.Sql_Address.text()
         MySql_Name = self.Sql_Name.text()
         MySql_Table_Question_Name = self.Sql_Table_Name.text()
         MySql_Account = self.User_Name.text()
         MySql_Password = self.User_Password.text()
         print(MySql_Address,MySql_Name,MySql_Table_Question_Name,MySql_Account,MySql_Password)
-        
+        #创建数据库操作对象
+        self.sql = MySql(MySql_Address=MySql_Address,MySql_Name=MySql_Name,MySql_Account=MySql_Account,MySql_Password=MySql_Password,MySql_Table_User_Name=None,MySql_Table_Question_Name=MySql_Table_Question_Name)
+
         #没有在数据库得到数据
         if(self.get_Question() == False):
             QMessageBox.information(None, "信息提示框", "登入失败",QMessageBox.Yes)
@@ -189,16 +143,20 @@ class MainWindow(QWidget,Ui_Form_MainWindow):
             self.Button_Next.setEnabled(True)
             self.Button_Answer.setEnabled(True)
             self.Button_Again_All.setEnabled(True)
+            self.m_Question_Index = 0
+            self.Show_Question()
+
+
     #错题列表按键 执行功能
     def Button_Error_List_Func(self):
-        self.child_window = Error_List_Ui()
-        self.child_window.set_Error_Questions(self.m_Error_Questions)
-        self.child_window.set_Error_Questions_Number(self.m_Error_Questions_Number)
-        self.child_window.Show_Error_Questions()
-        self.setVisible(False)
-        #链接子窗口的关闭按钮信号
-        self.child_window.close_Signal.connect(self.Child_Close_Func)
-        self.child_window.show()
+        if(self.sql != None):
+            self.child_window = Error_List_Ui(sql=self.sql)
+            self.child_window.Show_Error_Questions()
+            self.setVisible(False)
+            #链接子窗口的关闭按钮信号
+            self.child_window.close_Signal.connect(self.Child_Close_Func)
+            self.child_window.show()
+
     #错题子窗口返回并注销功能
     def Child_Close_Func(self,cmd):
         if(cmd == 'close'):
